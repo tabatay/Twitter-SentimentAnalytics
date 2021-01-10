@@ -1,0 +1,1 @@
+twitter -> Lambda -> Kinesis DataStream -> Kinesis Firehose -> S3 -> Lambda,AWS Comprehend -> S3 -> Redshift -> AWS QuickSight
