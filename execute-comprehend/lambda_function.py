@@ -44,8 +44,8 @@ def lambda_handler(event, context):
         result_str += tmp_detect_sentiment_str + '\n'
     
     # 結果格納先パスの宣言
-    s3_put_folder = 'comprehend-executed-coronavirus-result/'
-    s3_put_filename = 'comprehend-coronavirus-result-' + str(datetime.now(JST).strftime('%Y%m%d%H%M%S')) + '.csv'
+    s3_put_folder = settings.s3_put_folder
+    s3_put_filename = settings.s3_put_filename + str(datetime.now(JST).strftime('%Y%m%d%H%M%S')) + '.csv'
     s3_put_uri = s3_put_folder + s3_put_filename
 
     # 結果を格納
