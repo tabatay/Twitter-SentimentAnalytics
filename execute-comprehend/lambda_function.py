@@ -33,6 +33,7 @@ def detect_sentiment(text,language_code, i):
 
 def detect_key_phrases(text, language_code, i):
     
+    # comprehendの機能でツイート内に存在するキーフレーズを抽出
     response = comprehend.detect_key_phrases(Text=text, LanguageCode=language_code)
     
     print('キーフレーズ抽出結果 ' + str(i) + '行目' + str(response))
