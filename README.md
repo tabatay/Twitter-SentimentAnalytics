@@ -1,7 +1,7 @@
 # Twitter検索ツイートを取り込み、分析、可視化するアプリ
 
 ## AWS構成(予定)
-![architecture](architect.png)
+![architecture](architecture.png)
 
 ## 作成状況
 - [x] LambdaでAPIをCloudWatchEventsで定期的に実行し、Twitterから検索結果を取得
