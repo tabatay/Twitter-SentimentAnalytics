@@ -9,11 +9,54 @@ JST = timezone(timedelta(hours=+9), 'JST')
 comprehend = boto3.client('comprehend')
 s3_client = boto3.client('s3')
 
-def detect_key_phrases(text, language_code):
+def detect_sentiment(text,language_code, i):
+    
+    # comprehendの機能でツイートのPositive,Negative,Neutral,Mixed度を分析
+    response = comprehend.detect_sentiment(Text=text, LanguageCode=language_code)
+    
+    print('感情分析結果 ' + str(i) + '行目' + str(response))
+    
+    tmp_detect_sentiment_str = ''
+    
+    # Positive,Negative,Neutral,Mixed度は小数第4位まで
+    tmp_detect_sentiment_str += text + ','
+    tmp_detect_sentiment_str += str(response['Sentiment']) + ','
+    tmp_detect_sentiment_str += str(Decimal(str(response['SentimentScore']['Positive'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)) + ','
+    tmp_detect_sentiment_str += str(Decimal(str(response['SentimentScore']['Negative'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)) + ','
+    tmp_detect_sentiment_str += str(Decimal(str(response['SentimentScore']['Neutral'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)) + ','
+    tmp_detect_sentiment_str += str(Decimal(str(response['SentimentScore']['Mixed'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP))
+    
+    tmp_detect_sentiment_str += '\n'
+    
+    return tmp_detect_sentiment_str
+
+
+def detect_key_phrases(text, language_code, i):
     
     response = comprehend.detect_key_phrases(Text=text, LanguageCode=language_code)
     
-    return response
+    print('キーフレーズ抽出結果 ' + str(i) + '行目' + str(response))
+
+    tmp_detect_sentiment_str = ''
+    
+    for element in response['KeyPhrases']:
+        tmp_detect_sentiment_str += element['Text'] + '\n'
+
+    return tmp_detect_sentiment_str
+
+
+def put_s3_object(s3_put_folder, s3_put_filename, result):
+
+    s3_put_filename += str(datetime.now(JST).strftime('%Y%m%d%H%M%S')) + '.csv'
+    s3_put_uri = s3_put_folder + s3_put_filename
+    
+    # 結果を格納
+    s3_put_object = s3_client.put_object(Body=result, Bucket=settings.put_bucket_name, Key=s3_put_uri)
+    
+    print(s3_put_object)
+    
+    return 0
+    
 
 def lambda_handler(event, context):
     
@@ -34,51 +77,23 @@ def lambda_handler(event, context):
     i = 1
     for text in s3_object_body_lines:
         
-        # comprehendの機能でツイートのPositive,Negative,Neutral,Mixed度を分析
-        executed_comprehend_result = comprehend.detect_sentiment(Text=text, LanguageCode='ja')
-        
-        print('感情分析結果 ' + str(i) + '行目' + str(executed_comprehend_result))
-        
-        tmp_detect_sentiment_str = ''
-        
-        # Positive,Negative,Neutral,Mixed度は小数第4位まで
-        tmp_detect_sentiment_str += text + ','
-        tmp_detect_sentiment_str += str(executed_comprehend_result['Sentiment']) + ','
-        tmp_detect_sentiment_str += str(Decimal(str(executed_comprehend_result['SentimentScore']['Positive'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)) + ','
-        tmp_detect_sentiment_str += str(Decimal(str(executed_comprehend_result['SentimentScore']['Negative'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)) + ','
-        tmp_detect_sentiment_str += str(Decimal(str(executed_comprehend_result['SentimentScore']['Neutral'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP)) + ','
-        tmp_detect_sentiment_str += str(Decimal(str(executed_comprehend_result['SentimentScore']['Mixed'])).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP))
-        
-        result_str += tmp_detect_sentiment_str + '\n'
+        detect_sentiment_result = detect_sentiment(text, 'ja', i)
+        result_str += detect_sentiment_result
         
         # キーフレーズ抽出
-        key_phrases_result = detect_key_phrases(text,'ja')
-        print('キーフレーズ抽出結果 ' + str(i) + '行目' + str(key_phrases_result))
-        
-        for element in key_phrases_result['KeyPhrases']:
-            key_phrases_result_str += element['Text'] + '\n'
-            # print(element['Text'])
+        key_phrases_result = detect_key_phrases(text, 'ja', i)
+        key_phrases_result_str += key_phrases_result
     
         # 行数の計算
         i += 1
     
     # 結果格納先パスの宣言
     s3_detect_sentiment_put_folder = settings.s3_detect_sentiment_put_folder
-    s3_detect_sentiment_put_filename = settings.s3_detect_sentiment_put_filename + str(datetime.now(JST).strftime('%Y%m%d%H%M%S')) + '.csv'
-    s3_detect_sentiment_put_uri = s3_detect_sentiment_put_folder + s3_detect_sentiment_put_filename
-    
-    # 結果を格納
-    detect_sentiment_put_object = s3_client.put_object(Body=result_str, Bucket=settings.put_bucket_name, Key=s3_detect_sentiment_put_uri)
-    
-    print(detect_sentiment_put_object)
+    s3_detect_sentiment_put_filename = settings.s3_detect_sentiment_put_filename
+    put_s3_object(s3_detect_sentiment_put_folder, s3_detect_sentiment_put_filename, result_str)
     
     s3_detect_key_phrases_put_folder = settings.s3_detect_key_phrases_put_folder
-    s3_detect_key_phrases_put_filename = settings.s3_detect_key_phrases_put_filename + str(datetime.now(JST).strftime('%Y%m%d%H%M%S')) + '.csv'
-    s3_detect_key_phrases_put_uri = s3_detect_key_phrases_put_folder + s3_detect_key_phrases_put_filename
-    
-    # 結果を格納
-    detect_key_phrases_put_object = s3_client.put_object(Body=key_phrases_result_str, Bucket=settings.put_bucket_name, Key=s3_detect_key_phrases_put_uri)
-    
-    print(detect_key_phrases_put_object)
+    s3_detect_key_phrases_put_filename = settings.s3_detect_key_phrases_put_filename
+    put_s3_object(s3_detect_key_phrases_put_folder, s3_detect_key_phrases_put_filename, key_phrases_result_str)
     
     return 0
